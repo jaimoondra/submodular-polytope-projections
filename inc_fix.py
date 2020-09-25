@@ -1,10 +1,10 @@
 from typing import List
 import numpy as np
 import logging
+from constants import *
 
-logging.basicConfig(level=logging.DEBUG)
 
-minimum_decimal_difference = 0.0000001
+logging.basicConfig(level=logging.INFO)
 
 
 class CardinalityPolytope:
@@ -40,11 +40,14 @@ class CardinalityPolytope:
         # Check if g is monotonic nonincreasing
         for i in range(n):
             if g[i + 1] < g[i]:
+                logging.debug('Nonmonotonic: i = ' + str(i) + ', g[i] = ' + str(g[i]) + ', g[i + 1] = ' + str(g[i + 1]))
                 return False
 
         # Check if g is concave
         for i in range(n - 1):
-            if g[i] + g[i + 2] > 2 * g[i + 1]:
+            if g[i] + g[i + 2] > 2 * g[i + 1] + minimum_decimal_difference:
+                logging.debug('Not concave: i = ' + str(i) + ', g[i] = ' + str(g[i]) + ', g[i + 1] = ' +
+                              str(g[i + 1]) + ', g[i + 2] = ' + str(g[i + 2]))
                 return False
 
         return True
@@ -88,7 +91,7 @@ class CardinalityPolytope:
         """
         prefix_sum = [x[0]]
         for i in range(1, len(x)):
-            prefix_sum.append(round(prefix_sum[i - 1] + x[i], 5))
+            prefix_sum.append(round(prefix_sum[i - 1] + x[i], high_decimal_accuracy))
 
         return prefix_sum
 
@@ -119,8 +122,8 @@ class IncFix:
         if evaluation_set is None:
             evaluation_set = set(range(len(self)))
 
-        gradient = [round(x[i] - self.y[i], 5) if i in evaluation_set else np.inf for i in range(len(self))]
-        logging.debug('Gradient for x = ' + str(x) + ' is ' + str(gradient))
+        gradient = [round(x[i] - self.y[i], high_decimal_accuracy) if i in evaluation_set else np.inf for i in range(len(self))]
+        logging.debug('GRADIENT Gradient for x = ' + str(x) + ' is ' + str(gradient))
 
         return gradient
 
@@ -134,16 +137,12 @@ class IncFix:
         return args
 
     def maximal_tight_set(self, x: List[float]):
-        logging.info('Determining maximal tight set.')
-        logging.debug('x = ' + str(x))
-
         prefix_sum = self.cardinality_polytope.prefix_sum(x)
         tight_set = set([])
         for i in range(len(self)):
-            if prefix_sum[i] == self.cardinality_polytope.g[i + 1]:
+            if abs(prefix_sum[i] - self.cardinality_polytope.g[i + 1]) <= 2 * minimum_decimal_difference:
                 tight_set = set(range(i + 1))
 
-        logging.debug('Tight set = ' + str(tight_set))
         return tight_set
 
     def projection(self):
@@ -151,59 +150,53 @@ class IncFix:
         N = set(range(n))
         x, i = [0.0] * n, 0
         iterates = [x]
+        tight_sets = []
         fixed = set([])
-        count = 0
 
         while True:
             i += 1
             M = self.argmin(self.gradient(x, N))
-            logging.debug('Minimum gradients = ' + str(M))
+            logging.debug('INCFIX Argmin for  gradients = ' + str(M))
 
-            count2 = 0
             while self.maximal_tight_set(x).intersection(M) == set([]):
-                count2 += 1
                 shift_1 = min(self.gradient(x, N - M)) - min(self.gradient(x, N))
                 shift_2 = self.max_feasible_shift(x, M)
-                logging.debug('Shifts = ' + str(shift_1) + ', ' + str(shift_2))
+                logging.debug('INCFIX Shifts = ' + str(shift_1) + ', ' + str(shift_2))
 
                 x = self.shift_on_set(x, M, min(shift_1, shift_2))
-                logging.debug('x = ' + str(x))
+                logging.debug('INCFIX x = ' + str(x))
+                logging.debug('INCFIX M = ' + str(M))
+                logging.debug('INCFIX T(x) = ' + str(self.maximal_tight_set(x)))
 
+                maximal_tight_set = self.maximal_tight_set(x)
+                tight_sets.append(len(maximal_tight_set))
                 iterates.append(x)
                 M = self.argmin(self.gradient(x, N))
 
             maximal_tight_set = self.maximal_tight_set(x)
             fixed = fixed.union(M.intersection(maximal_tight_set))
-            logging.debug('Fixed set = ' + str(fixed))
+            logging.debug('INCFIX Fixed set = ' + str(fixed))
+            logging.info('INCFIX Tight set size = ' + str(len(maximal_tight_set)))
 
             N = N - (M.intersection(maximal_tight_set))
             if len(N) == 0:
                 break
 
-            count += 1
-
-        return x, iterates
+        return x, iterates, tight_sets
 
     @staticmethod
     def shift_on_set(x: List[float], M: set, shift: float):
-        shifted_x = [round(x[i] + shift, 5) if i in M else x[i] for i in range(len(x))]
+        shifted_x = [round(x[i] + shift, high_decimal_accuracy) if i in M else x[i] for i in range(len(x))]
         return shifted_x
 
     def max_feasible_shift(self, x: List[float], M: set):
-        logging.info('Determining maximum feasible set.')
-
         prefix_sum_x = self.cardinality_polytope.prefix_sum(x)
-        logging.debug('prefix_sum = ' + str(prefix_sum_x))
+        logging.debug('SHIFT prefix_sum = ' + str(prefix_sum_x))
+        logging.debug('SHIFT g = ' + str(self.cardinality_polytope.g))
 
         k = min(M)
-        shifts = [round((self.cardinality_polytope.g[i + 1] - prefix_sum_x[i])/(i + 1 - k), 5) for i in range(k,
-                                                                                                          k + len(M))]
+        shifts = [(self.cardinality_polytope.g[i + 1] - prefix_sum_x[i])/(i + 1 - k) for i in range(k, k + len(M))]
+        logging.debug('SHIFT Shifts array = ' + str(shifts))
+
         shift = min(shifts)
         return shift
-
-
-g = [0.4, 0.6, 0.7, 0.8]
-y = [0.05, 0.07, 1, 0.6]
-proj = IncFix(g, y)
-x_star, iterates = proj.projection()
-print(x_star, iterates)
