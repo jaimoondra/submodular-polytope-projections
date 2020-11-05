@@ -203,7 +203,6 @@ class IncFix:
         x, i = [0.0] * n, 0
         iterates = [x]
         tight_sets = []
-        fixed = set([])
 
         while True:
             i += 1
@@ -221,13 +220,12 @@ class IncFix:
                 logging.debug('INCFIX T(x) = ' + str(self.maximal_tight_set(x)))
 
                 maximal_tight_set = self.maximal_tight_set(x)
-                tight_sets.append(maximal_tight_set)
                 iterates.append(x)
                 M = self.argmin(self.gradient(x, N))
 
             maximal_tight_set = self.maximal_tight_set(x)
-            fixed = fixed.union(M.intersection(maximal_tight_set))
-            logging.debug('INCFIX Fixed set = ' + str(fixed))
+            tight_sets.append(maximal_tight_set)
+            logging.debug('INCFIX Tight set sequence = ' + str(maximal_tight_set))
             logging.info('INCFIX Tight set size = ' + str(len(maximal_tight_set)))
 
             N = N - (M.intersection(maximal_tight_set))

@@ -4,8 +4,10 @@ import math
 import logging
 import matplotlib.pyplot as plt
 import seaborn as sns
+import statistics
 from inc_fix import CardinalityPolytope, IncFix, permute, sort, invert, map_set
 from constants import *
+from metrics import l_norm_violated_constraints
 
 
 logging.basicConfig(level=logging.INFO)
@@ -448,12 +450,6 @@ def close_points_absolute_match(n: int, reps: int = 40):
         if T > 0:
             tight_set_accuracy.append(round(t/T, base_decimal_accuracy))
 
-    # plt.plot(tight_set_accuracy)
-    # plt.xlabel('iteration')
-    # plt.ylabel('Tight sets match')
-    # plt.show()
-    # plt.clf()
-
     return tight_set_accuracy
 
 
@@ -495,21 +491,164 @@ def random_points_absolute_match(n: int, reps: int = 40):
         if T > 0:
             tight_set_accuracy.append(round(t/T, base_decimal_accuracy))
 
-    # plt.plot(tight_set_accuracy)
-    # plt.xlabel('iteration')
-    # plt.ylabel('Tight sets match')
-    # plt.show()
-    # plt.clf()
-
     return tight_set_accuracy
 
 
-for n in [25, 50, 75, 100, 150]:
-    print('n = ' + str(n))
-    t1 = close_points_absolute_match(n)
-    t2 = random_points_absolute_match(n)
+def close_points_repeated_tight_sets(n: int, reps: 100, seed):
+    """
+    :param n:
+    :param reps:
+    :return:
+    """
+    np.random.seed(seeds[seed])
+    g = list(np.ones(n))
 
-    plt.plot(t1, 'r')
-    plt.plot(t2, 'b')
-    plt.savefig('figures\\tight-set-matches\\absolute-' + str(n))
-    plt.clf()
+    # Central random point
+    y = list(np.ones(n))
+
+    proj = IncFix(g, y)
+    mapping = proj.mapping
+    x_star, iterates, tight_sets = proj.projection()
+
+    tight_sets_master_set = set([])
+    iterates, y1, x_star, tight_sets = map_items(iterates, y, x_star, tight_sets, mapping)
+    # print(tight_sets)
+    tight_sets = set(frozenset(i) for i in tight_sets)
+    all_tight_sets = [tight_sets]
+    tight_sets_master_set = tight_sets_master_set.union(tight_sets)
+    already_seen_tight_sets = [len(tight_sets)]
+
+    # print(y1)
+
+    for i in range(reps):
+        print('Rep ' + str(i))
+        noise = random_point(n, (1 / math.sqrt(n)), False, seed=None)
+        y0 = [round(abs(y[i] + noise[i]), base_decimal_accuracy) for i in range(n)]
+
+        proj0 = IncFix(g, y0)
+        x_star0, iterates0, tight_sets0 = proj0.projection()
+        iterates0, y0, x_star0, tight_sets0 = map_items(iterates0, y0, x_star0, tight_sets0, mapping)
+        tight_sets0 = set(frozenset(i) for i in tight_sets0)
+        tight_sets0 = set(tight_sets0)
+        all_tight_sets.append(tight_sets0)
+        already_seen_tight_sets.append(len(tight_sets0 - tight_sets_master_set))
+        tight_sets_master_set = tight_sets_master_set.union(tight_sets0)
+
+    T = len(tight_sets_master_set)
+    cumulative_tight_sets_seen = [already_seen_tight_sets[0]]
+    for i in range(1, len(already_seen_tight_sets)):
+        cumulative_tight_sets_seen.append(cumulative_tight_sets_seen[-1] + already_seen_tight_sets[i])
+
+    # print(cumulative_tight_sets_seen)
+
+    already_seen_tight_sets_fraction = [cumulative_tight_sets_seen[rep]/T for rep in range(len(cumulative_tight_sets_seen))]
+
+    return all_tight_sets
+    # return already_seen_tight_sets_fraction
+
+
+def close_points_metric(n: int, reps: int = 19):
+    np.random.seed(seeds[0])
+    g = generate_concave_function(n)
+    card_pol = CardinalityPolytope(g)
+
+    metrics = []
+
+    # Central random point
+    y = random_point(n, std_dev_point, True, seed=None)
+    metrics.append(l_norm_violated_constraints(1, card_pol, y))
+
+    for i in range(reps):
+        # print('Rep ' + str(i))
+        noise = random_point(n, (1/(n*n)), False, seed=None)
+        y0 = [round(abs(y[i] + noise[i]), base_decimal_accuracy) for i in range(n)]
+        metrics.append(l_norm_violated_constraints(1, card_pol, y0))
+
+    metrics = round_list(metrics, base_decimal_accuracy)
+    return metrics, statistics.stdev(metrics)
+
+
+def random_points_metric(n: int, reps: int = 20):
+    np.random.seed(seeds[0])
+    g = generate_concave_function(n)
+    card_pol = CardinalityPolytope(g)
+
+    metrics = []
+
+    for i in range(reps):
+        # print('Rep ' + str(i))
+        y0 = random_point(n, std_dev_point, True, seed=None)
+        metrics.append(l_norm_violated_constraints(1, card_pol, y0))
+
+    metrics = round_list(metrics, base_decimal_accuracy)
+    return metrics, statistics.stdev(metrics)
+
+
+# for n in [25, 50, 75]:
+#     print('n = ' + str(n))
+#     t1 = close_points(n)
+#     t2 = random_points(n)
+#
+#     plt.plot(t1, 'r')
+#     plt.plot(t2, 'b')
+#     plt.xlabel('Number of iterations')
+#     plt.ylabel('Fraction of tight sets that \'match\' (cumulative)')
+#     plt.savefig('figures\\tight-set-matches\\' + str(n))
+#     plt.clf()
+
+
+# inner_reps = 50
+# outer_reps = 50
+#
+#
+# for n in [50, 100]:
+#     master_seen_tight_sets = [0] * (inner_reps + 1)
+#     for i in range(outer_reps):
+#         print('Iteration ' + str(i))
+#         seen_tight_sets = np.array(close_points_repeated_tight_sets(n, inner_reps, i))
+#         # print(seen_tight_sets)
+#         for j in range(inner_reps + 1):
+#             master_seen_tight_sets[j] = master_seen_tight_sets[j] + seen_tight_sets[j]/outer_reps
+#
+#     # t = np.arange(0., 5., 0.2)
+#     # plt.plot(t, t / inner_reps, 'r')
+#     plt.title('Fraction of tight sets seen vs number of points for noise 1/sqrt(n). n = ' + str(n))
+#     plt.xlabel('Number of points')
+#     plt.ylabel('Fraction of total number of tight sets already seen')
+#     plt.plot(master_seen_tight_sets, 'b')
+#     plt.savefig('figures\\n=' + str(n) + '-fraction-of-tight-sets-seen-noise-1-by-sqrt-n.png')
+#     plt.clf()
+#
+#
+# stdev_list_1 = []
+# stdev_list_2 = []
+# stdev_ratio = []
+# for n in range(1, 19):
+#     print(n)
+#     _, stdev_1 = close_points_metric(n)
+#     _, stdev_2 = random_points_metric(n)
+#     print(stdev_2 / stdev_1)
+#     stdev_list_1.append(stdev_1)
+#     stdev_list_2.append(stdev_2)
+#     stdev_ratio.append(stdev_2 / stdev_1)
+#
+# print(round_list(stdev_list_1, base_decimal_accuracy))
+# print(round_list(stdev_list_2, base_decimal_accuracy))
+# print(round_list(stdev_ratio, base_decimal_accuracy))
+#
+# plt.plot(stdev_list_1)
+# plt.show()
+# plt.clf()
+# plt.plot(stdev_list_2)
+# plt.show()
+# plt.clf()
+# plt.plot(stdev_ratio)
+# plt.show()
+# plt.clf()
+
+
+t = close_points_repeated_tight_sets(100, 100, seed=0)
+print(t)
+# plt.plot(t)
+# plt.show()
+
