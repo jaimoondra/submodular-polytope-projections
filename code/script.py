@@ -1,46 +1,34 @@
-import numpy as np
-from typing import List, Dict, Set
+import pandas as pd
+import csv
+from constants import *
+import matplotlib.pyplot as plt
+from learning_using_gradient_differences import close_points_learning
 
 
-def sort(x: List[int], reverse=False):
-    """
-    :param x: List of numbers
-    :param reverse: Sorts in decreasing order if set to True
-    :return: Sorted list and the corresponding sorted indices
-    """
-    enum = sorted(enumerate(x), key=lambda z: z[1], reverse=reverse)
-    y = [enum[j][1] for j in range(len(enum))]
-    mapping = {enum[j][0]: j for j in range(len(enum))}
+n = 50
+inner = 500
+outer = 20
 
-    return y, mapping
-
-
-def invert(mapping: Dict[int, int]):
-    """
-    Invert a (bijective) mapping {0, ..., n - 1} -> {0, ..., n - 1}
-    :param mapping: Original mapping
-    :return: Inverse of the original mapping
-    """
-    n = len(mapping)
-    return {mapping[i]: i for i in range(n)}
+with open('n-50-1-over-n-noise-500-inner-20-outer.csv', mode='w') as write_file:
+    writer = csv.writer(write_file, delimiter=',')
+    writer.writerow(['Seed', 'Learned tight sets', 'Total tight sets', 'Fraction of tight sets '
+                                                                       'seen'])
+    for j in range(outer):
+        print('Outer iteration #' + str(j))
+        seens = close_points_learning(n=n, m=inner, seed=seeds[j])
+        for i in range(len(seens[0])):
+            writer.writerow([seeds[j], seens[0][i], seens[1][i], seens[0][i]/seens[1][i]])
 
 
-def map_set(S: Set[int], mapping: Dict[int, int]):
-    return set({mapping[i] for i in S})
 
 
-def permute(x: List[int], mapping: Dict[int, int]):
-    y = [0] * len(x)
-    print(mapping)
-    for i in range(len(x)):
-        y[mapping[i]] = x[i]
-
-    return y
-
-
-x = [10, 10000, 100, 1000]
-y, m = sort(x, reverse=True)
-print(y, m)
-m1 = invert(m)
-z = permute(y, m1)
-print(z)
+# from submodular_polytope import sort, CardinalitySubmodularFunction, CardinalityPolytope
+#
+# # x = [2, 3, 1]
+# # y, mapping = sort(x)
+# #
+# # print(y, mapping)
+#
+# f = CardinalitySubmodularFunction(g=[1.0, 1.9, 2.6], n=3)
+# P = CardinalityPolytope(f=f)
+# print(P.linear_optimization_tight_sets(c=[1.0, 1.1, 2.5], T=[{}, {0, 2}, {0, 1, 2}]))

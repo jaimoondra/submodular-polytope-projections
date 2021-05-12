@@ -1,2 +1,2 @@
 # inc-fix
-Submodular projections using inc-fix
+Submodular functions, polytopes, and various optimization algorithms on them

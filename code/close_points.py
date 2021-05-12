@@ -90,7 +90,7 @@ def random_point(n: int, r: float = 1, nonnegative: bool = False, seed=None):
     if seed is not None:
         np.random.seed(seed)
 
-    z = np.random.multivariate_normal(mean=[0] * n, cov=r * np.identity(n))
+    z = np.random.multivariate_normal(mean=[0] * n, cov=(r * r) * np.identity(n))
     if nonnegative:
         z = [round(x, base_decimal_accuracy) if x >= 0 else round(-x, base_decimal_accuracy) for x in z]
 
@@ -109,98 +109,98 @@ def map_items(iterates: List[List[float]], y: List[float], x_star: List[float], 
     return iterates, y1, x_star, tight_sets
 
 
-def close_points(n: int, reps: int = 40):
-    np.random.seed(seeds[0])
-    g = generate_concave_function(n)
+# def close_points(n: int, reps: int = 40):
+#     np.random.seed(seeds[0])
+#     g = generate_concave_function(n)
+#
+#     # Central random point
+#     y = random_point(n, std_dev_point, True, seed=None)
+#
+#     proj = IncFix(g, y)
+#     mapping = proj.mapping
+#     x_star, iterates, tight_sets = proj.projection()
+#
+#     tight_sets_for_multiple_points = []
+#     iterates, y1, x_star, tight_sets = map_items(iterates, y, x_star, tight_sets, mapping)
+#
+#     T = 0
+#     for i in range(reps):
+#         print('Rep ' + str(i))
+#         noise = random_point(n, (1/(n*n)), False, seed=None)
+#         y0 = [round(abs(y[i] + noise[i]), base_decimal_accuracy) for i in range(n)]
+#
+#         proj0 = IncFix(g, y0)
+#         x_star0, iterates0, tight_sets0 = proj0.projection()
+#         iterates0, y0, x_star0, tight_sets0 = map_items(iterates0, y0, x_star0, tight_sets0, mapping)
+#         tight_sets_for_multiple_points.append(tight_sets0)
+#
+#     tight_set_accuracy = []
+#     t, T = 0, 0
+#     for iteration in range(len(tight_sets)):
+#         tight_set1 = tight_sets[iteration]
+#         for rep in range(reps):
+#             if len(tight_sets_for_multiple_points[rep]) > iteration:
+#                 tight_set2 = tight_sets_for_multiple_points[rep][iteration]
+#                 if len(tight_set1) > 0 or len(tight_set2) > 0:
+#                     t += 2 * len(tight_set2.intersection(tight_set1))
+#                     T += len(tight_set1) + len(tight_set2)
+#
+#         if T > 0:
+#             tight_set_accuracy.append(round(t/T, base_decimal_accuracy))
+#
+#     # plt.plot(tight_set_accuracy)
+#     # plt.xlabel('iteration')
+#     # plt.ylabel('Tight sets match')
+#     # plt.show()
+#     # plt.clf()
+#
+#     return tight_set_accuracy
 
-    # Central random point
-    y = random_point(n, std_dev_point, True, seed=None)
 
-    proj = IncFix(g, y)
-    mapping = proj.mapping
-    x_star, iterates, tight_sets = proj.projection()
-
-    tight_sets_for_multiple_points = []
-    iterates, y1, x_star, tight_sets = map_items(iterates, y, x_star, tight_sets, mapping)
-
-    T = 0
-    for i in range(reps):
-        print('Rep ' + str(i))
-        noise = random_point(n, (1/(n*n)), False, seed=None)
-        y0 = [round(abs(y[i] + noise[i]), base_decimal_accuracy) for i in range(n)]
-
-        proj0 = IncFix(g, y0)
-        x_star0, iterates0, tight_sets0 = proj0.projection()
-        iterates0, y0, x_star0, tight_sets0 = map_items(iterates0, y0, x_star0, tight_sets0, mapping)
-        tight_sets_for_multiple_points.append(tight_sets0)
-
-    tight_set_accuracy = []
-    t, T = 0, 0
-    for iteration in range(len(tight_sets)):
-        tight_set1 = tight_sets[iteration]
-        for rep in range(reps):
-            if len(tight_sets_for_multiple_points[rep]) > iteration:
-                tight_set2 = tight_sets_for_multiple_points[rep][iteration]
-                if len(tight_set1) > 0 or len(tight_set2) > 0:
-                    t += 2 * len(tight_set2.intersection(tight_set1))
-                    T += len(tight_set1) + len(tight_set2)
-
-        if T > 0:
-            tight_set_accuracy.append(round(t/T, base_decimal_accuracy))
-
-    # plt.plot(tight_set_accuracy)
-    # plt.xlabel('iteration')
-    # plt.ylabel('Tight sets match')
-    # plt.show()
-    # plt.clf()
-
-    return tight_set_accuracy
-
-
-def random_points(n: int, reps: int = 40):
-    np.random.seed(seeds[0])
-    g = generate_concave_function(n)
-
-    # Central random point
-    y = random_point(n, std_dev_point, True, seed=None)
-
-    proj = IncFix(g, y)
-    mapping = proj.mapping
-    x_star, iterates, tight_sets = proj.projection()
-
-    tight_sets_for_multiple_points = []
-    iterates, y, x_star, tight_sets = map_items(iterates, y, x_star, tight_sets, invert(mapping))
-
-    for i in range(reps):
-        print('Rep ' + str(i))
-        y0 = random_point(n, std_dev_point, True, seed=None)
-
-        proj0 = IncFix(g, y0)
-        x_star0, iterates0, tight_sets0 = proj0.projection()
-        iterates0, y0, x_star0, tight_sets0 = map_items(iterates0, y0, x_star0, tight_sets0, invert(mapping))
-        tight_sets_for_multiple_points.append(tight_sets0)
-
-    tight_set_accuracy = []
-    t, T = 0, 0
-    for iteration in range(len(tight_sets)):
-        tight_set1 = tight_sets[iteration]
-        for rep in range(reps):
-            if len(tight_sets_for_multiple_points[rep]) > iteration:
-                tight_set2 = tight_sets_for_multiple_points[rep][iteration]
-                if len(tight_set1) > 0 or len(tight_set2) > 0:
-                    t += 2 * len(tight_set2.intersection(tight_set1))
-                    T += len(tight_set1) + len(tight_set2)
-
-        if T > 0:
-            tight_set_accuracy.append(round(t/T, base_decimal_accuracy))
-
-    # plt.plot(tight_set_accuracy)
-    # plt.xlabel('iteration')
-    # plt.ylabel('Tight sets match')
-    # plt.show()
-    # plt.clf()
-
-    return tight_set_accuracy
+# def random_points(n: int, reps: int = 40):
+#     np.random.seed(seeds[0])
+#     g = generate_concave_function(n)
+#
+#     # Central random point
+#     y = random_point(n, std_dev_point, True, seed=None)
+#
+#     proj = IncFix(g, y)
+#     mapping = proj.mapping
+#     x_star, iterates, tight_sets = proj.projection()
+#
+#     tight_sets_for_multiple_points = []
+#     iterates, y, x_star, tight_sets = map_items(iterates, y, x_star, tight_sets, invert(mapping))
+#
+#     for i in range(reps):
+#         print('Rep ' + str(i))
+#         y0 = random_point(n, std_dev_point, True, seed=None)
+#
+#         proj0 = IncFix(g, y0)
+#         x_star0, iterates0, tight_sets0 = proj0.projection()
+#         iterates0, y0, x_star0, tight_sets0 = map_items(iterates0, y0, x_star0, tight_sets0, invert(mapping))
+#         tight_sets_for_multiple_points.append(tight_sets0)
+#
+#     tight_set_accuracy = []
+#     t, T = 0, 0
+#     for iteration in range(len(tight_sets)):
+#         tight_set1 = tight_sets[iteration]
+#         for rep in range(reps):
+#             if len(tight_sets_for_multiple_points[rep]) > iteration:
+#                 tight_set2 = tight_sets_for_multiple_points[rep][iteration]
+#                 if len(tight_set1) > 0 or len(tight_set2) > 0:
+#                     t += 2 * len(tight_set2.intersection(tight_set1))
+#                     T += len(tight_set1) + len(tight_set2)
+#
+#         if T > 0:
+#             tight_set_accuracy.append(round(t/T, base_decimal_accuracy))
+#
+#     # plt.plot(tight_set_accuracy)
+#     # plt.xlabel('iteration')
+#     # plt.ylabel('Tight sets match')
+#     # plt.show()
+#     # plt.clf()
+#
+#     return tight_set_accuracy
 
 
 def compare_points(n: int):
@@ -646,9 +646,9 @@ def random_points_metric(n: int, reps: int = 20):
 # plt.show()
 # plt.clf()
 
-
-t = close_points_repeated_tight_sets(100, 100, seed=0)
-print(t)
-# plt.plot(t)
-# plt.show()
-
+#
+# t = close_points_repeated_tight_sets(100, 100, seed=0)
+# print(t)
+# # plt.plot(t)
+# # plt.show()
+#
