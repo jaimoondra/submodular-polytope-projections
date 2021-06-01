@@ -3,54 +3,9 @@ import numpy as np
 import logging
 from constants import *
 from submodular_polytope import CardinalityPolytope, CardinalitySubmodularFunction
+from utils import *
 
 logging.basicConfig(level=logging.WARNING)
-
-
-def sort(x: List[float], reverse=False):
-    """
-    :param x: List of numbers
-    :param reverse: Sorts in decreasing order if set to True
-    :return: Sorted list and the corresponding mapping (permutation)
-    """
-    enum = sorted(enumerate(x), key=lambda z: z[1], reverse=reverse)
-    y = [enum[j][1] for j in range(len(enum))]
-    mapping = {enum[j][0]: j for j in range(len(enum))}
-
-    return y, mapping
-
-
-def invert(mapping: Dict[int, int]):
-    """
-    Invert a (bijective) mapping {0, ..., n - 1} -> {0, ..., n - 1}
-    :param mapping: Original mapping
-    :return: Inverse of the original mapping
-    """
-    return {mapping[i]: i for i in range(len(mapping))}
-
-
-def map_set(S: Set[int], mapping: Dict[int, int]):
-    """
-    Determines the range of S under mapping
-    :param S: set of integers
-    :param mapping: mapping
-    :return: range of S under mapping as a set
-    """
-    return set({mapping[i] for i in S})
-
-
-def permute(x: List[float], mapping: Dict[int, int]):
-    """
-    Permutes x according to mapping
-    :param x:
-    :param mapping:
-    :return:
-    """
-    y = [0.0] * len(x)
-    for i in range(len(x)):
-        y[mapping[i]] = x[i]
-
-    return y
 
 
 class IncFix:

@@ -2,7 +2,7 @@ import math
 
 # Constants:
 n = 100  # size of ground set
-base_decimal_accuracy = 8  # All inputs and outputs will have this accuracy
+base_decimal_accuracy = 5  # All inputs and outputs will have this accuracy
 minimum_decimal_difference = math.pow(10, -base_decimal_accuracy)  # for float accuracy
 high_decimal_accuracy = 12  # Used only by inner computations in algorithms
 dist_square = 50  # todo: add description

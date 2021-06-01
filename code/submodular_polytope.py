@@ -106,15 +106,33 @@ class SubmodularPolytope:
         :return: max c^T x for x in B(f)
         """
         d, mapping = sort(c, reverse=True)  # Sort in revese order for greedy algorithm
+        inverse = invert(mapping)           # Inverse permutation
+
         x = [0.0] * len(self)  # This will be the argmax
         # Greedy algorithm
         for i in range(len(self)):
-            x[i] = self.f.function_value(set(range(i + 1))) - self.f.function_value(set(range(i)))
+            S_up = map_set(set(range(i + 1)), inverse)
+            S_down = map_set(set(range(i)), inverse)
+            x[i] = self.f.function_value(S_up) - self.f.function_value(S_down)
 
         opt = sum([x[i] * d[i] for i in range(len(self))])  # Opt value
-        invert_x = permute(x, invert(mapping))  # Restore the original order for x
+        invert_x = permute(x, inverse)  # Restore the original order for x
 
         return opt, invert_x
+
+    @staticmethod
+    def check_chain(T: List[Set]):
+        """
+        Checks if a given list of sets forms a chain
+        :param T: List of sets
+        :return: Boolean
+        """
+        flag = True
+        for i in range(len(T) - 1):
+            if not T[i].issubset(T[i + 1]):
+                flag = False
+
+        return flag
 
     def linear_optimization_tight_sets(self, c: List[float], T: List[Set]):
         """
@@ -127,6 +145,13 @@ class SubmodularPolytope:
         ground set
         :return: max c^T x under the constraints
         """
+        # print('T = ', T)
+        if T[-1] is not frozenset(range(len(self))):
+            T.append(frozenset(range(len(self))))
+
+        if not self.check_chain(T):
+            raise ValueError('The given chain of sets does not form a chain.')
+
         permutation = {}
         count = 0
         for j in range(1, len(T)):
@@ -136,11 +161,13 @@ class SubmodularPolytope:
                 permutation[u] = count
                 count = count + 1
 
+        inverse_permutation = invert(permutation)
         c1 = permute(c, permutation)
         x = []
         l = 0
-        mappings = {}
         opt = 0
+
+        # print(permutation, inverse_permutation)
 
         for j in range(1, len(T)):
             U = T[j]
@@ -148,13 +175,20 @@ class SubmodularPolytope:
             D = U.difference(T[j - 1])
             m = len(D)
             d, mapping = sort(c1[l: l + m], reverse=True)
-            inverse_mapping = invert(mapping)
+            inverse = invert(mapping)
             for i in range(m):
-                y.append(self.f.function_value(set(range(i + l + 1))) - self.f.function_value(set(
-                    range(l + i))))
-                opt = opt + d[i] * (self.f.function_value(set(range(l + i + 1))) -
-                                    self.f.function_value(set(range(l + i))))
-            y = permute(y, inverse_mapping)
+                D_up_inverse = map_set(set(range(i + 1)), inverse)
+                D_up_inverse = set([a + l for a in list(range(i + 1))])
+
+                D_down_inverse = map_set(set(range(i)), inverse)
+                D_down_inverse = set([a + l for a in list(range(i))])
+
+                S_up = T[j - 1].union(map_set(D_up_inverse, inverse_permutation))
+                S_down = T[j - 1].union(map_set(D_down_inverse, inverse_permutation))
+
+                y.append(self.f.function_value(S_up) - self.f.function_value(S_down))
+                opt = opt + d[i] * y[-1]
+            y = permute(y, inverse)
             x = x + y
             l = l + m
 
@@ -307,10 +341,22 @@ class BiparititeGraphSubmodularFunction(SubmodularFunction):
         return w
 
 
-def generate_random_bipartite_graph(n: int):
-    for i in range(n):
-        for j in range(n + 1, 2*n):
-             p = random.random()
-             q = random.random()
-             if q <= p:
-                 w = random.random()
+def integer_rounding(x: List[float]):
+    t = len(x)
+    rounded_point = [0.0] * t
+    for i in range(t):
+        min_distance = abs(round(x[i]) - x[i])
+        rounded_number = round(x[i])
+        for j in range(2, t + 1):
+            if abs((round(x[i] * j) - x[i] * j)/j) < min_distance:
+                min_distance = abs((round(x[i] * j) - x[i] * j)/j)
+                rounded_number = round(x[i] * j)/j
+
+        rounded_point[i] = rounded_number
+
+    return rounded_point
+
+
+f = PermutahedronSubmodularFunction(2)
+P = Permutahedron(f)
+print(P.minimum_norm_point(eps=0.01))
