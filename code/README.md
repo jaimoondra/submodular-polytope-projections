@@ -86,4 +86,4 @@ python plot_omd_regret_over_time.py
 ```
 
 ### Remark
-This code can be found on GitHub at at https://github.com/jaimoondra/submodular-polytope-projections/edit/experiments/code/
+This code can be found on GitHub at https://github.com/jaimoondra/submodular-polytope-projections/edit/experiments/code/
