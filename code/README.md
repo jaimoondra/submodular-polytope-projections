@@ -1,6 +1,6 @@
 ## Experiments playbook
 
-All scripts are in `inc-fix/code`
+All scripts are in folder `code`
 
 ### Tight cuts
 
