@@ -1,7 +1,7 @@
 from continuous_methods import *
 
 
-def projection_on_permutahedron_using_afw_hassan(n, y, epsilon, S={}, x=None):
+def projection_on_permutahedron_using_afw_alt(n, y, epsilon, S={}, x=None):
     def f(s):
         return sum([n + 1 - i for i in range(1, s + 1)])
 

@@ -104,15 +104,6 @@ def determine_tight_sets(y, x, g=None):
     :return: sequence of tight cuts alogn with c[j + 1] - c[j] value, sorted in decreasing order
     of values of c[j + 1] - c[j]
     """
-    # def set_sum(S: Set):
-    #     x_s = 0.0
-    #     for s in S:
-    #         x_s = x_s + x[s]
-    #     return x_s
-    #
-    # def get_gradients(S: set):
-    #     w = {s: round(x[s] - y[s], 4) for s in S}
-    #     return w
 
     n = len(x)
     z = x - y
@@ -136,15 +127,6 @@ def determine_tight_sets(y, x, g=None):
         H = H.union({inverse_mapping[i]})
 
     tight_sets.append([np.inf, frozenset(H)])
-    # unique_gradient_coordinates = np.unique(z)
-    # unique_gradient_coordinates = np.append(unique_gradient_coordinates, np.inf)
-    # for j in range(len(unique_gradient_coordinates) - 1):
-    #     F = set(np.where(z1 == unique_gradient_coordinates[j])[0])
-    #     T = T.union(F)
-    #     # print(T, set_sum(T))
-    #     # print(get_gradients(T))
-    #     tight_sets.append([round(unique_gradient_coordinates[j + 1] -
-    #                          unique_gradient_coordinates[j], 8), frozenset(T)])
 
     tight_sets = np.array(tight_sets)
     tight_sets = tight_sets[np.argsort(tight_sets[:, 0])]
@@ -422,6 +404,20 @@ def AFW(x, S, lmo, epsilon, func, grad_f, f_tol, time_tol):
 
 def adaptive_AFW_cardinality_polytope(x, S, P, epsilon, func, grad_f, f_tol, time_tol,
                                       initial_tight_sets, y):
+    """
+    Adaptive AFW
+    :param x: initial vertex
+    :param S: initial active set
+    :param P: Submodular Polytope
+    :param epsilon: AFW-gap parameter
+    :param func: function to minimize (Euclidean distance in our case)
+    :param grad_f: gradient of func
+    :param f_tol:
+    :param time_tol: Max allowed time
+    :param initial_tight_sets: Known tight sets
+    :param y: point to be projected
+    :return:
+    """
     # Fucntion to compute away vertex
     n = len(x)
     T = set(S.keys())
@@ -633,6 +629,15 @@ def proj_oracle(vertices, y):
 
 
 def generate_loss_functions_for_permutahedron(a, b, seed, n: int, T: int):
+    """
+    Generates loss functions
+    :param a: number of permutations
+    :param b: max swap distance between any two permutations
+    :param seed: seed for random
+    :param n: size of ground set
+    :param T: time (number of iterations in the online problem)
+    :return: loss function vectors
+    """
     np.random.seed(seed)
     random.seed(seed)
 
@@ -756,6 +761,9 @@ def isotonic_projection(y, g):
 
 
 class SubmodularFunction:
+    """
+    Class to represent submodular functions
+    """
     def __init__(self, n: int = 0):
         """
         :param S: ground set; if you want to make the ground set [1, ..., n] set S = {} and see n
@@ -773,6 +781,10 @@ class SubmodularFunction:
 
 
 class CardinalityDifferenceSubmodularFunction(SubmodularFunction):
+    """
+    Class to represent a submodular function of the form f1(W) = f(W) - r(W), where r is a vector
+    and f is given
+    """
     def __init__(self, g, r, n: int = 0):
         super().__init__(n)
         # We assume that the list g is the tuple (g(1), ..., g(n)). We append g(0) = 0 to this list
@@ -820,6 +832,9 @@ class CardinalityDifferenceSubmodularFunction(SubmodularFunction):
 
 
 class CardinalitySubmodularFunction(CardinalityDifferenceSubmodularFunction):
+    """
+    Class for cardinality-based submodular functions
+    """
     def __init__(self, g, n):
         r = [0.0] * n
         super().__init__(g, r, n)
@@ -834,6 +849,9 @@ class PermutahedronSubmodularFunction(CardinalitySubmodularFunction):
 
 
 class SubmodularPolytope:
+    """
+    Class to represent submodular polytopes
+    """
     def __init__(self, f: SubmodularFunction):
         self.f = f
 
@@ -1082,6 +1100,14 @@ def tight_set_rounded_solution(C: CardinalityPolytope, H, y):
 
 
 def cut_rounding(C: CardinalityPolytope, H, y, S):
+    """
+    Function for tight-set based round algorithm
+    :param C: Cardinality-based polytope
+    :param H:
+    :param y:
+    :param S:
+    :return:
+    """
     H.sort(key=len)
 
     x = tight_set_rounded_solution(C, H, y)
