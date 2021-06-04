@@ -2,6 +2,9 @@
 
 All scripts are in folder `code`
 
+### Requirements
+This code requires Gurobi (with a valid license) to be installed to the python environment used - this could be done at https://www.gurobi.com/documentation/9.0/quickstart_mac/the_grb_python_interface_f.html
+
 ### Tight cuts
 
 Tu run the experiment, do
