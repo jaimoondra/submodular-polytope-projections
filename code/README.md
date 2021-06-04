@@ -1,4 +1,4 @@
-## Experiments playbook
+## Experiments playbook for _Reusing Combinatorial Structure: Faster IterativeProjections over Submodular Base Polytopes_
 
 All scripts are in folder `code`
 
