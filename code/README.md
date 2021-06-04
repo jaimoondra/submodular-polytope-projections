@@ -84,6 +84,3 @@ To generate regret/time plot for OMD-AFW variants,
 ```angular2html
 python plot_omd_regret_over_time.py
 ```
-
-### Remark
-This code can be found on GitHub at https://github.com/jaimoondra/submodular-polytope-projections/edit/experiments/code/
