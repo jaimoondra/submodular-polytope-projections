@@ -2,14 +2,14 @@ import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
 
-m = 500
+m = 2000
 
-runs = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+runs = [3200] #[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
 T_u, T_a, T_c, T_d, T_o = [], [], [], [], []
 
 for i in runs:
-    regret_df = pd.read_csv('regrets_' + str(i) + '.csv', index_col=0, header=None)
-    regret_df.index = range(5)
+    regret_df = pd.read_csv('moreregrets_' + str(i) + ' 0.csv', index_col=0, header=None)
+    regret_df.index = range(6)
     print(regret_df.sum(axis=1))
     regret_df = regret_df.loc[[0, 1, 2, 3, 4]]
     regret_df = (1000 * regret_df)/regret_df.sum(axis=1)[0]
@@ -88,7 +88,7 @@ plt.xlabel(r'Iterations')
 plt.ylabel(r'Regret/time (normzalied)')
 
 # plt.xscale('log')
-# plt.yscale('log')
+plt.yscale('log')
 
 # plt.ylim(ymin=10, ymax=1200)
 # plt.xlim(xmin=0, xmax=500)

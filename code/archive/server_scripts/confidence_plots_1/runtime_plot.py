@@ -2,25 +2,25 @@ import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
 
-m = 500
+m = 1000
 
-# Iterations numbers of runs
-runs = [0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+# Iterations: indices of runs
+# runs = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+runs = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
 T_u, T_a, T_c, T_d, T_o = [], [], [], [], []
 
 for i in runs:
-    time_df = pd.read_csv('times_noncardinality_' + str(i) + '.csv', index_col=0,
-                          header=None)
-    time_df.index = range(5)
-    # time_df = time_df.loc[[0, 1, 2, 3, 5]]
+    # Read data from csv files
+    time_df = pd.read_csv('times_4_' + str(i) + '.csv', index_col=0, header=None)
+    time_df.index = range(6)
+    # time_df = time_df.loc[[0, 1, 2, 3]]
     time_df = (1000 * time_df)/time_df.sum(axis=1)[0]
 
     T_u.append(list(time_df.loc[0]))
     T_a.append(list(time_df.loc[1]))
     T_c.append(list(time_df.loc[2]))
     T_d.append(list(time_df.loc[3]))
-    T_o.append(list(time_df.loc[4]))
-
+    T_o.append(list(time_df.loc[5]))
 
 T_u = pd.DataFrame(T_u)
 T_a = pd.DataFrame(T_a)
@@ -35,11 +35,6 @@ t_d = T_d.sum(axis=1).mean()
 t_o = T_o.sum(axis=1).mean()
 
 print(t_u, t_a, t_c, t_d, t_o)
-#
-# t_u = T_u.sum(axis=1).mean()
-# t_a = T_a.sum(axis=1).mean()
-# t_c = T_c.sum(axis=1).mean()
-# t_d = T_d.sum(axis=1).mean()
 #
 # T_u = T_u.cumsum(axis=1)
 # T_a = T_a.cumsum(axis=1)
@@ -73,7 +68,7 @@ print(t_u, t_a, t_c, t_d, t_o)
 # plt.yscale('log')
 #
 # # Uncomment to adjust axes ranges
-# plt.ylim(ymin=10, ymax=1200)
+# # plt.ylim(ymin=5, ymax=1200)
 # # plt.xlim(xmin=0, xmax=500)
 #
 # plt.fill_between(range(m), quantile25_u, quantile75_u, color='green', alpha=0.1)
@@ -89,5 +84,5 @@ print(t_u, t_a, t_c, t_d, t_o)
 # plt.tight_layout()
 #
 # plt.legend(loc='lower right', fontsize=15)
-# plt.savefig('runtime_nc_4.png', dpi=300)
+# plt.savefig('moreruntime_50.png', dpi=300)
 # plt.show()

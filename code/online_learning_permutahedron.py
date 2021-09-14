@@ -15,6 +15,8 @@ import numpy.linalg as npl
 from time import process_time
 import datetime
 
+function_tolerance = 0.0000001
+
 
 # Constants:
 base_decimal_accuracy = 5  # All inputs and outputs will have this accuracy
@@ -338,12 +340,13 @@ def AFW(x, S, lmo, epsilon, func, grad_f, f_tol, time_tol):
                 else:
                     S[k] *= (1 + gamma)
                     S[k] -= gamma
-        T = {k: v for k, v in S.items() if np.round(v, 10) > 0}
+        # T = {k: v for k, v in S.items() if np.round(v, 10) > 0}
+        T = {k: v for k, v in S.items()}
         t = sum(list(T.values()))
         T = {k: T[k]/t for k in T}
-        x = np.zeros(n)
-        for k in T:
-            x = x + np.array(k) * T[k]
+        # x = np.zeros(n)
+        # for k in T:
+        #     x = x + np.array(k) * T[k]
         return T
 
         # return {k: v for k, v in S.items() if np.round(v, 12) > 0}
@@ -364,7 +367,10 @@ def AFW(x, S, lmo, epsilon, func, grad_f, f_tol, time_tol):
         v = lmo(-grad)
         d_FW = v - x
         # If primal gap is small enough - terminate
+        print('FW Gap:', np.dot(-grad, d_FW))
+        # print(func(x))
         if np.dot(-grad, d_FW) <= epsilon:
+            print('here!!!!!!')
             break
         else:
             # update convergence data
@@ -386,6 +392,7 @@ def AFW(x, S, lmo, epsilon, func, grad_f, f_tol, time_tol):
             # choose Away direction
             d = d_A
             vertex = a
+            # todo: add condition on alpha_a = 1
             gamma_max = alpha_a / (1 - alpha_a)
             Away = True
         # Update next iterate by doing a feasible line-search
@@ -397,6 +404,7 @@ def AFW(x, S, lmo, epsilon, func, grad_f, f_tol, time_tol):
         time.append(time[t] + end - start)
         f_improv = function_value[-1] - func(x)
         function_value.append(func(x))
+        # print('Function value: ', func(x))
         t += 1
 
     return x, function_value, time, t, primal_gap, S
@@ -502,6 +510,7 @@ def adaptive_AFW_cardinality_polytope(x, S, P, epsilon, func, grad_f, f_tol, tim
         d_FW = v - np.array(x)
 
         gap = np.dot(-grad, d_FW)
+        print(func(x))
 
         if gap < 0:
             gap = 0
@@ -1141,7 +1150,7 @@ def projection_on_permutahedron_using_afw_euclidean(n, y, epsilon, lmo, S=None, 
     y = np.array(y)
     h = lambda x: 0.5 * np.dot(x - y, x - y)
     grad_h = lambda x: np.power(x - y, 1)
-    h_tol, time_tol = -1, np.inf
+    h_tol, time_tol = function_tolerance, np.inf
 
     if x is None:
         w = generate_random_permutation(n)
@@ -1165,7 +1174,7 @@ def projection_on_permutahedron_using_afw_euclidean(n, y, epsilon, lmo, S=None, 
     y = np.array(y)
     h = lambda x: 0.5 * np.dot(x - y, x - y)
     grad_h = lambda x: np.power(x - y, 1)
-    h_tol, time_tol = -1, np.inf
+    h_tol, time_tol = function_tolerance, np.inf
 
     if x is None:
         w = generate_random_permutation(n)
@@ -1378,7 +1387,7 @@ def cut_optimized_mirror_descent(n, epsilon, P, T, loss_vectors_list, x_0, eta):
 
         h = lambda x: 0.5 * np.dot(x - y, x - y)
         grad_h = lambda x: np.power(x - y, 1)
-        h_tol, time_tol = -1, np.inf
+        h_tol, time_tol = function_tolerance, np.inf
 
         x, _, fw_time, fw_iter, _, S, _ = \
             adaptive_AFW_cardinality_polytope(x, {tuple(x): 1}, P, epsilon, h, grad_h, h_tol,
@@ -1477,7 +1486,7 @@ def doubly_optimized_mirror_descent(n, epsilon, P, T, loss_vectors_list, x_0, et
 
         h = lambda x: 0.5 * np.dot(x - y, x - y)
         grad_h = lambda x: np.power(x - y, 1)
-        h_tol, time_tol = -1, np.inf
+        h_tol, time_tol = function_tolerance, np.inf
 
         x, S = convex_hull_correction2(S, y)
         x, _, fw_time, fw_iter, _, S, _ = \
@@ -1625,11 +1634,11 @@ def online_mirror_descent_permutahedron(P: Permutahedron, T: int, epsilon: float
         regret_doubly_optimized, regret_ofw, regret_isotonic
 
 
-n = 25
-T = 500
-outer = 20
+n = 50
+T = 1000
+outer = 1
 epsilon = 1 / (n ** 3)
-a, b = 1, 1
+a, b = 4, 4
 
 print('n = ', n, 'T = ', T, 'epsilon = ', epsilon, 'a = ', a, 'b = ', b)
 
@@ -1643,9 +1652,9 @@ for seed in range(0, outer):
     times = pd.DataFrame(columns=[T1, T2, T3, T4, T5, T6])
     iterates = pd.DataFrame(columns=[i1, i2, i3, i4])
     regrets = pd.DataFrame(columns=[r1, r2, r3, r4, r5, r6])
-    times.to_csv('times_' + str(seed) + '.csv')
-    iterates.to_csv('iterates_' + str(seed) + '.csv')
-    regrets.to_csv('regrets_' + str(seed) + '.csv')
+    times.to_csv('moretimes_3' + str(n) + str(' ') + str(seed) + '.csv')
+    iterates.to_csv('moreiterates_3' + str(n) + str(' ') + str(seed) + '.csv')
+    regrets.to_csv('moreregrets_3' + str(n) + str(' ') + str(seed) + '.csv')
 
     print('Iteration ' + str(seed))
 
