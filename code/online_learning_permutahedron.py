@@ -339,8 +339,9 @@ def AFW(x, S, lmo, epsilon, func, grad_f, f_tol, time_tol):
                     S[k] *= (1 + gamma)
                     S[k] -= gamma
         T = {k: v for k, v in S.items() if np.round(v, 10) > 0}
-        t = sum(list(T.values()))
-        T = {k: T[k]/t for k in T}
+        # T = S
+        # t = sum(list(T.values()))
+        # T = {k: T[k]/t for k in T}
         x = np.zeros(n)
         for k in T:
             x = x + np.array(k) * T[k]
@@ -389,7 +390,18 @@ def AFW(x, S, lmo, epsilon, func, grad_f, f_tol, time_tol):
             gamma_max = alpha_a / (1 - alpha_a)
             Away = True
         # Update next iterate by doing a feasible line-search
-        x, gamma = line_search(x, d, gamma_max, func)
+
+        # y = x + gamma_max * d
+        # # restrict segment of search to [x, y]
+        # d = (y - x).copy()
+        # left, right = x.copy(), y.copy()
+
+        # if the minimum is at an endpoint
+        if np.dot(d, grad_f(x + gamma_max * d)) <= 0:
+            gamma = gamma_max
+            x = x + gamma * d
+        else:
+            x, gamma = line_search(x, d, gamma_max, func)
         # x, gamma = segment_search(func, grad_f, x, x + gamma_max *d)
         # update active set
         S = update_S(S, gamma, Away, vertex)
@@ -1625,10 +1637,10 @@ def online_mirror_descent_permutahedron(P: Permutahedron, T: int, epsilon: float
         regret_doubly_optimized, regret_ofw, regret_isotonic
 
 
-n = 25
-T = 500
-outer = 20
-epsilon = 1 / (n ** 3)
+n = 50
+T = 2000
+outer = 1
+epsilon = math.pow(10, -5)
 a, b = 1, 1
 
 print('n = ', n, 'T = ', T, 'epsilon = ', epsilon, 'a = ', a, 'b = ', b)
