@@ -1,0 +1,7 @@
+n = 50 T = 1000 epsilon = 0.0001 a = 6 b = 6 p = 0.2
+Run  23
+Using license file /opt/gurobi/latest/linux64/gurobi-client.lic
+Set parameter TokenServer to value gaoler.isye.gatech.edu
+Run  24
+Run  25
+Warning for adding constraints: zero or small (< 1e-13) coefficients, ignored

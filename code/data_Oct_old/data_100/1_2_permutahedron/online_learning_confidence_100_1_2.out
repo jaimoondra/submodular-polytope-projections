@@ -1,0 +1,12 @@
+n = 100 T = 2000 epsilon = 0.001 a = 1 b = 2
+Run  1
+Using license file /opt/gurobi/latest/linux64/gurobi-client.lic
+Set parameter TokenServer to value gaoler.isye.gatech.edu
+Run  2
+Run  3
+Run  4
+Run  5
+Run  6
+Run  7
+Run  8
+Run  9

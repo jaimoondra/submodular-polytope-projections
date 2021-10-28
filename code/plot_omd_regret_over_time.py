@@ -8,7 +8,7 @@ runs = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
 T_u, T_a, T_c, T_d, T_o = [], [], [], [], []
 
 for i in runs:
-    regret_df = pd.read_csv('regrets_' + str(i) + '.csv', index_col=0, header=None)
+    regret_df = pd.read_csv('regrets_permutahedron50_1000_1_2_' + str(i) + '.csv', index_col=0, header=None)
     regret_df.index = range(5)
     print(regret_df.sum(axis=1))
     regret_df = regret_df.loc[[0, 1, 2, 3, 4]]

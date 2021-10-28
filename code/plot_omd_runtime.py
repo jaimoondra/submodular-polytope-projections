@@ -10,7 +10,7 @@ T_u, T_a, T_c, T_d = [], [], [], []
 
 for i in runs:
     # Read data from csv files
-    time_df = pd.read_csv('times_' + str(i) + '.csv', index_col=0, header=None)
+    time_df = pd.read_csv('times_permutahedron50_1000_1_2_' + str(i) + '.csv', index_col=0, header=None)
     time_df.index = range(6)
     time_df = time_df.loc[[0, 1, 2, 3]]
     time_df = (1000 * time_df)/time_df.sum(axis=1)[0]

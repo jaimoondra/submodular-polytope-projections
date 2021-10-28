@@ -1,0 +1,21 @@
+n = 50 T = 1000 epsilon = 0.0001 a = 1 b = 2 p = 0.2
+Run  10
+Using license file /opt/gurobi/latest/linux64/gurobi-client.lic
+Set parameter TokenServer to value gaoler.isye.gatech.edu
+Run  11
+Run  12
+Warning for adding constraints: zero or small (< 1e-13) coefficients, ignored
+Warning for adding constraints: zero or small (< 1e-13) coefficients, ignored
+Run  13
+Warning for adding constraints: zero or small (< 1e-13) coefficients, ignored
+Run  14
+Run  15
+Run  16
+Warning for adding constraints: zero or small (< 1e-13) coefficients, ignored
+Run  17
+Warning for adding constraints: zero or small (< 1e-13) coefficients, ignored
+Run  18
+Warning for adding constraints: zero or small (< 1e-13) coefficients, ignored
+Warning for adding constraints: zero or small (< 1e-13) coefficients, ignored
+Run  19
+Warning for adding constraints: zero or small (< 1e-13) coefficients, ignored
