@@ -308,6 +308,7 @@ def line_search(x, d, gamma_max, func):
 
 def AFW(x, S, lmo, epsilon, func, grad_f, f_tol, time_tol):
     n = len(x)
+
     # Fucntion to compute away vertex
     def away_step(grad, S):
         costs = {}
@@ -318,7 +319,8 @@ def AFW(x, S, lmo, epsilon, func, grad_f, f_tol, time_tol):
         vertex, alpha = costs[max(costs.keys())]
         return vertex, alpha
 
-    def update_S(S, gamma, Away, vertex):
+    # Function to update the active set
+    def update_S(S, gamma, Away, vertex, x):
         S = S.copy()
         vertex = tuple(vertex)
 
@@ -339,15 +341,21 @@ def AFW(x, S, lmo, epsilon, func, grad_f, f_tol, time_tol):
                 else:
                     S[k] *= (1 + gamma)
                     S[k] -= gamma
+
+        # Drop any vertices whose coefficients fall below 10^{-8}
         T = {k: v for k, v in S.items() if np.round(v, 10) > 0}
-        t = sum(list(T.values()))
-        T = {k: T[k]/t for k in T}
+
+        # Update the point x
+
         x = np.zeros(n)
         for k in T:
-            x = x + np.array(k) * T[k]
-        return T
+            x = x + T[k] * np.array(k)
+        t = sum(list(T.values()))
+        x = x/t
+        # Update coefficients in set T
+        T = {k: T[k]/t for k in T}
 
-        # return {k: v for k, v in S.items() if np.round(v, 12) > 0}
+        return T, x
 
     # record primal gap, function value, and time every iteration
     now = datetime.datetime.now()
@@ -365,7 +373,11 @@ def AFW(x, S, lmo, epsilon, func, grad_f, f_tol, time_tol):
         v = lmo(-grad)
         d_FW = v - x
         # If primal gap is small enough - terminate
+        # logging.warning('Primal gap:' + str(np.dot(-grad, d_FW)))
         if np.dot(-grad, d_FW) <= epsilon:
+            end = process_time()  # Record end time
+            time.append(time[t] + end - start)
+            t = t + 1
             break
         else:
             # update convergence data
@@ -390,17 +402,31 @@ def AFW(x, S, lmo, epsilon, func, grad_f, f_tol, time_tol):
             gamma_max = alpha_a / (1 - alpha_a)
             Away = True
         # Update next iterate by doing a feasible line-search
-        x, gamma = line_search(x, d, gamma_max, func)
+
+        # y = x + gamma_max * d
+        # # restrict segment of search to [x, y]
+        # d = (y - x).copy()
+        # left, right = x.copy(), y.copy()
+
+        # if the minimum is at an endpoint
+        if np.dot(d, grad_f(x + gamma_max * d)) <= 0:
+            gamma = gamma_max
+            x = x + gamma * d
+        else:
+            x, gamma = line_search(x, d, gamma_max, func)
         # x, gamma = segment_search(func, grad_f, x, x + gamma_max *d)
+
         # update active set
-        S = update_S(S, gamma, Away, vertex)
-        end = process_time()
-        time.append(time[t] + end - start)
-        f_improv = function_value[-1] - func(x)
-        function_value.append(func(x))
+        S, x = update_S(S, gamma, Away, vertex, x)
+
+        end = process_time()                        # Record end time
+        time.append(time[t] + end - start)          # Update time taken in this iteration
+        f_improv = function_value[-1] - func(x)     # Update improvement in function value
+        function_value.append(func(x))              # Record current function value
+        # logging.warning('Function value:' + str(func(x)))
         t += 1
 
-    return x, function_value, time, t, primal_gap, S
+    return x, function_value, time[1:], t, primal_gap, S
 
 
 def adaptive_AFW_cardinality_polytope(x, S, P, epsilon, func, grad_f, f_tol, time_tol,
@@ -431,7 +457,7 @@ def adaptive_AFW_cardinality_polytope(x, S, P, epsilon, func, grad_f, f_tol, tim
         vertex, alpha = costs[max(costs.keys())]
         return vertex, alpha
 
-    def update_S(S, gamma, Away, vertex):
+    def update_S(S, gamma, Away, vertex, x):
         S = S.copy()
         vertex = tuple(vertex)
 
@@ -452,13 +478,20 @@ def adaptive_AFW_cardinality_polytope(x, S, P, epsilon, func, grad_f, f_tol, tim
                 else:
                     S[k] *= (1 + gamma)
                     S[k] -= gamma
-        T = {k: v for k, v in S.items() if np.round(v, 10) > 0}
-        t = sum(list(T.values()))
-        T = {k: T[k]/t for k in T}
+
+        # Drop any vertices whose coefficients fall below 10^{-8}
+        U = {k: v for k, v in S.items() if np.round(v, 10) > 0}
+
+        # Update the point x
         x = np.zeros(n)
-        for k in T:
-            x = x + np.array(k) * T[k]
-        return T
+        for k in U:
+            x = x + U[k] * np.array(k)
+        t = sum(list(U.values()))
+        x = x/t
+        # Update coefficients in set T
+        U = {k: U[k]/t for k in U}
+
+        return U, x
 
     def infer_tight_sets_from_close_point(d, tight_sets1):
         """
@@ -489,9 +522,6 @@ def adaptive_AFW_cardinality_polytope(x, S, P, epsilon, func, grad_f, f_tol, tim
     inferred_tight_sets = initial_tight_sets.union({frozenset()})
 
     while f_improv > f_tol and time[-1] < time_tol:
-        start = process_time()              # Start time
-        grad = grad_f(x)                    # Compute gradient
-
         # solve linear subproblem and compute FW direction
         def lmo(c, inferred_tight_sets):
             inferred_tight_sets_list = list(inferred_tight_sets)
@@ -499,10 +529,19 @@ def adaptive_AFW_cardinality_polytope(x, S, P, epsilon, func, grad_f, f_tol, tim
             _, v = P.linear_optimization_tight_sets(c, inferred_tight_sets_list)
             return v
 
+        start = process_time()              # Start time
+        grad = grad_f(x)                    # Compute gradient
+
         v = lmo(-grad, list(inferred_tight_sets))
         d_FW = v - np.array(x)
 
         gap = np.dot(-grad, d_FW)
+
+        # if gap <= epsilon:  # If primal gap is small enough - terminate
+        #     end = process_time()  # Record end time
+        #     time.append(time[t] + end - start)
+        #     t = t + 1
+        #     break
 
         if gap < 0:
             gap = 0
@@ -532,6 +571,9 @@ def adaptive_AFW_cardinality_polytope(x, S, P, epsilon, func, grad_f, f_tol, tim
 
         else:
             if gap <= epsilon:                      # If primal gap is small enough - terminate
+                end = process_time()  # Record end time
+                time.append(time[t] + end - start)
+                t = t + 1
                 break
             else:
                 primal_gap.append(gap)              # update convergence data
@@ -555,17 +597,24 @@ def adaptive_AFW_cardinality_polytope(x, S, P, epsilon, func, grad_f, f_tol, tim
                 Away = True
 
             # Update next iterate by doing a feasible line-search
-            x, gamma = line_search(x, d, gamma_max, func)
+            # x, gamma = line_search(x, d, gamma_max, func)
+
+            # if the minimum is at an endpoint
+            if np.dot(d, grad_f(x + gamma_max * d)) <= 0:
+                gamma = gamma_max
+                x = x + gamma * d
+            else:
+                x, gamma = line_search(x, d, gamma_max, func)
 
             # update active set
-            S = update_S(S, gamma, Away, vertex)
+            S, x = update_S(S, gamma, Away, vertex, x)
         end = process_time()
-        time.append(time[t] + end - start)
+        time.append(time[t - 1] + end - start)
         f_improv = function_value[-1] - func(x)
         function_value.append(func(x))
         t += 1
 
-    return x, function_value, time, t, primal_gap, S, inferred_tight_sets
+    return x, function_value, time[1:], t, primal_gap, S, inferred_tight_sets
 
 
 def convex_hull_correction1(S, func):
@@ -1105,13 +1154,14 @@ class BiparititeGraphSubmodularFunction(SubmodularFunction):
         return len(N)
 
 
-def create_bipartite_graph(n: int, p: float):
+def create_bipartite_graph(n: int, p: float, seed: int):
     """
     Function to create a random bipartite graph with bipartition (U, V), U = V = [n]
     :param n:
     :param p: probability of each edge existing
     :return: list of neighbors of each vertex in U
     """
+    random.seed(seed)
     U_neighbors = []
     for u in range(n):
         neighbors = []
@@ -1199,30 +1249,6 @@ def projection_on_permutahedron_using_afw_euclidean(n, y, epsilon, lmo, S=None, 
     return A
 
 
-def projection_on_permutahedron_using_afw_euclidean(n, y, epsilon, lmo, S=None, x=None):
-    """
-    :param n: |E|
-    :param y: Point to project
-    :param epsilon: Error
-    :param S: Ative set dict
-    :param x: Intial iterate
-    :return:
-    """
-    y = np.array(y)
-    h = lambda x: 0.5 * np.dot(x - y, x - y)
-    grad_h = lambda x: np.power(x - y, 1)
-    h_tol, time_tol = -1, np.inf
-
-    if x is None:
-        w = generate_random_permutation(n)
-        x = w
-        S = {tuple(w): 1}
-
-    A = AFW(np.array(x), S, lmo, epsilon, h, grad_h, h_tol, time_tol)
-    # print(A)
-    return A
-
-
 def vanilla_mirror_descent(n, epsilon, P, T, loss_vectors_list, x_0, eta):
     total_time = 0.0
     fw_iterations = []
@@ -1256,6 +1282,8 @@ def vanilla_mirror_descent(n, epsilon, P, T, loss_vectors_list, x_0, eta):
         x, _, fw_time, fw_iter, _, S = \
             projection_on_permutahedron_using_afw_euclidean(n, y, epsilon, lmo, {x_0: 1}, x_0)
 
+        # if t < 1:
+        #     print('afw x =', x, y, np.linalg.norm(y - x))
         time_steps.append(sum(fw_time))
 
         fw_iterations.append(fw_iter)
@@ -1331,6 +1359,8 @@ def active_set_optimized_mirror_descent(n, epsilon, P, T, loss_vectors_list, x_0
         x, _, fw_time, fw_iter, _, S = \
             projection_on_permutahedron_using_afw_euclidean(n, y, epsilon, lmo, S, x)
 
+        # if t < 1:
+        #     print('afw x =', x, y, np.linalg.norm(y - x))
         time_steps.append(sum(fw_time))
 
         fw_iterations.append(fw_iter)
@@ -1427,10 +1457,11 @@ def cut_optimized_mirror_descent(n, epsilon, P, T, loss_vectors_list, x_0, eta):
         h_tol, time_tol = -1, np.inf
 
         x, _, fw_time, fw_iter, _, S, _ = \
-            adaptive_AFW_cardinality_polytope(x, {tuple(x): 1}, P, epsilon, h, grad_h, h_tol,
+            adaptive_AFW_cardinality_polytope(x_0, {tuple(x_0): 1}, P, epsilon, h, grad_h, h_tol,
                                               time_tol,
                                               chain_of_tight_sets, y)
-
+        # if t < 1:
+        #     print('adaptive afw x =', x, y, np.linalg.norm(y - x))
         time_steps.append(sum(fw_time) + t2 - t1)
 
         tight_sets_list.append(determine_tight_sets(y, x))
@@ -1530,6 +1561,9 @@ def doubly_optimized_mirror_descent(n, epsilon, P, T, loss_vectors_list, x_0, et
             adaptive_AFW_cardinality_polytope(x, S, P, epsilon, h, grad_h, h_tol,
                                               time_tol,
                                               chain_of_tight_sets, y)
+
+        # if t < 1:
+        #     print('adaptive afw x =', x, y, np.linalg.norm(y - x))
 
         time_steps.append(sum(fw_time) + t2 - t1)
 
@@ -1667,20 +1701,20 @@ def online_mirror_descent_bipartite(P: SubmodularPolytope, T: int, epsilon: floa
         regret_doubly_optimized, regret_ofw
 
 
-n = 25
+n = 50
 p = 0.2
-T = 500
-outer = 20
-epsilon = 1 / (n ** 3)
-a, b = 4, 4
+T = 1000
+start, end = 0, 10
+epsilon = math.pow(10, -4)
+a, b = 1, 2
 
-print('n = ', n, 'T = ', T, 'epsilon = ', epsilon, 'a = ', a, 'b = ', b)
+print('n =', n, 'T =', T, 'epsilon =', epsilon, 'a =', a, 'b =', b, 'p =', p)
 
 
-U_neighbors = create_bipartite_graph(n, p)
+U_neighbors = create_bipartite_graph(n, p, seed=0)
 f = BiparititeGraphSubmodularFunction(n, U_neighbors)
 P = SubmodularPolytope(f)
-for seed in range(0, outer):
+for seed in range(start, end):
     print('Run ', seed)
     t1, t2, t3, t4, t5, T1, T2, T3, T4, T5, i1, i2, i3, i4, r1, r2, r3, r4, r5 =\
         online_mirror_descent_bipartite(P, T, epsilon, seed, a, b)
@@ -1688,22 +1722,29 @@ for seed in range(0, outer):
     times = pd.DataFrame(columns=[T1, T2, T3, T4, T5])
     iterates = pd.DataFrame(columns=[i1, i2, i3, i4])
     regrets = pd.DataFrame(columns=[r1, r2, r3, r4, r5])
-    times.to_csv('times_' + str(seed) + '.csv')
-    iterates.to_csv('iterates_' + str(seed) + '.csv')
-    regrets.to_csv('regrets_' + str(seed) + '.csv')
+    times.to_csv('times_' + str(n) + '_' + str(T) + '_' + str(a) + '_' + str(b) +
+                 '_' + str(seed) + '.csv')
+    iterates.to_csv('iterates_' + str(n) + '_' + str(T) + '_' + str(a) + '_' +
+                    str(b) + '_' + str(seed) + '.csv')
+    regrets.to_csv('regrets_' + str(n) + '_' + str(T) + '_' + str(a) + '_' + str(b) +
+                   '_' + str(seed) + '.csv')
 
-    print('Iteration ' + str(seed))
+    sourceFile = open('noncardinality_' + str(n) + '_' + str(T) + '_' + str(a) + '_' + str(b) +
+                      '.txt', 'a')
+    print('Iteration ' + str(seed), file=sourceFile)
 
-    print('Total times')
-    print(t1)
-    print(t2)
-    print(t3)
-    print(t4)
-    print(t5)
+    print('Total times', file=sourceFile)
+    print(t1, file=sourceFile)
+    print(t2, file=sourceFile)
+    print(t3, file=sourceFile)
+    print(t4, file=sourceFile)
+    print(t5, file=sourceFile)
 
-    print('Regrets')
-    print(sum(r1))
-    print(sum(r2))
-    print(sum(r3))
-    print(sum(r4))
-    print(sum(r5))
+    print('Regrets', file=sourceFile)
+    print(sum(r1), file=sourceFile)
+    print(sum(r2), file=sourceFile)
+    print(sum(r3), file=sourceFile)
+    print(sum(r4), file=sourceFile)
+    print(sum(r5), file=sourceFile)
+
+    sourceFile.close()
