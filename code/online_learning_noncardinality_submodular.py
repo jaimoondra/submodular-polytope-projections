@@ -320,42 +320,28 @@ def AFW(x, S, lmo, epsilon, func, grad_f, f_tol, time_tol):
         return vertex, alpha
 
     # Function to update the active set
-    def update_S(S, gamma, Away, vertex, x):
-        S = S.copy()
+    def update_S(T, gamma, Away, vertex, gamma_away_max):
+        S = T.copy()
         vertex = tuple(vertex)
-
         if not Away:
-            if vertex not in S.keys():
+            if vertex not in T.keys():
                 S[vertex] = gamma
             else:
                 S[vertex] *= (1 - gamma)
                 S[vertex] += gamma
-
             for k in S.keys():
                 if k != vertex:
                     S[k] *= (1 - gamma)
         else:
-            for k in S.keys():
+            for k in T.keys():
                 if k != vertex:
                     S[k] *= (1 + gamma)
+                elif abs(gamma_away_max - gamma) < 10 ** -8:
+                    del S[k]
                 else:
                     S[k] *= (1 + gamma)
                     S[k] -= gamma
-
-        # Drop any vertices whose coefficients fall below 10^{-8}
-        T = {k: v for k, v in S.items() if np.round(v, 10) > 0}
-
-        # Update the point x
-
-        x = np.zeros(n)
-        for k in T:
-            x = x + T[k] * np.array(k)
-        t = sum(list(T.values()))
-        x = x/t
-        # Update coefficients in set T
-        T = {k: T[k]/t for k in T}
-
-        return T, x
+        return S
 
     # record primal gap, function value, and time every iteration
     now = datetime.datetime.now()
@@ -365,7 +351,8 @@ def AFW(x, S, lmo, epsilon, func, grad_f, f_tol, time_tol):
     f_improv = np.inf
     # initialize starting point and active set
     t = 0
-    while f_improv > f_tol and time[-1] < time_tol:
+    while (f_improv > f_tol and time[-1] < time_tol) and t < 10000:
+        # logging.warning('t = ' + str(t))
         start = process_time()
         # compute gradient
         grad = grad_f(x)
@@ -403,21 +390,17 @@ def AFW(x, S, lmo, epsilon, func, grad_f, f_tol, time_tol):
             Away = True
         # Update next iterate by doing a feasible line-search
 
-        # y = x + gamma_max * d
-        # # restrict segment of search to [x, y]
-        # d = (y - x).copy()
-        # left, right = x.copy(), y.copy()
-
         # if the minimum is at an endpoint
         if np.dot(d, grad_f(x + gamma_max * d)) <= 0:
             gamma = gamma_max
             x = x + gamma * d
         else:
-            x, gamma = line_search(x, d, gamma_max, func)
-        # x, gamma = segment_search(func, grad_f, x, x + gamma_max *d)
+            gamma = np.dot(-grad, d)/np.dot(d, d)
+            # logging.warning(str(gamma) + ', ' + str(gamma_max))
+            x = x + gamma * d
 
         # update active set
-        S, x = update_S(S, gamma, Away, vertex, x)
+        S = update_S(S, gamma, Away, vertex, gamma_max)
 
         end = process_time()                        # Record end time
         time.append(time[t] + end - start)          # Update time taken in this iteration
@@ -445,9 +428,10 @@ def adaptive_AFW_cardinality_polytope(x, S, P, epsilon, func, grad_f, f_tol, tim
     :param y: point to be projected
     :return:
     """
-    # Fucntion to compute away vertex
     n = len(x)
     T = set(S.keys())
+
+    # Fucntion to compute away vertex
     def away_step(grad, S):
         costs = {}
 
@@ -457,41 +441,29 @@ def adaptive_AFW_cardinality_polytope(x, S, P, epsilon, func, grad_f, f_tol, tim
         vertex, alpha = costs[max(costs.keys())]
         return vertex, alpha
 
-    def update_S(S, gamma, Away, vertex, x):
-        S = S.copy()
+    # Fucntion to compute away vertex
+    def update_S(T, gamma, Away, vertex, gamma_away_max):
+        S = T.copy()
         vertex = tuple(vertex)
-
         if not Away:
-            if vertex not in S.keys():
+            if vertex not in T.keys():
                 S[vertex] = gamma
             else:
                 S[vertex] *= (1 - gamma)
                 S[vertex] += gamma
-
             for k in S.keys():
                 if k != vertex:
                     S[k] *= (1 - gamma)
         else:
-            for k in S.keys():
+            for k in T.keys():
                 if k != vertex:
                     S[k] *= (1 + gamma)
+                elif abs(gamma_away_max - gamma) < 10 ** -8:
+                    del S[k]
                 else:
                     S[k] *= (1 + gamma)
                     S[k] -= gamma
-
-        # Drop any vertices whose coefficients fall below 10^{-8}
-        U = {k: v for k, v in S.items() if np.round(v, 10) > 0}
-
-        # Update the point x
-        x = np.zeros(n)
-        for k in U:
-            x = x + U[k] * np.array(k)
-        t = sum(list(U.values()))
-        x = x/t
-        # Update coefficients in set T
-        U = {k: U[k]/t for k in U}
-
-        return U, x
+        return S
 
     def infer_tight_sets_from_close_point(d, tight_sets1):
         """
@@ -521,7 +493,7 @@ def adaptive_AFW_cardinality_polytope(x, S, P, epsilon, func, grad_f, f_tol, tim
     t = 0
     inferred_tight_sets = initial_tight_sets.union({frozenset()})
 
-    while f_improv > f_tol and time[-1] < time_tol:
+    while (f_improv > f_tol and time[-1] < time_tol) and t < 4000:
         # solve linear subproblem and compute FW direction
         def lmo(c, inferred_tight_sets):
             inferred_tight_sets_list = list(inferred_tight_sets)
@@ -597,17 +569,16 @@ def adaptive_AFW_cardinality_polytope(x, S, P, epsilon, func, grad_f, f_tol, tim
                 Away = True
 
             # Update next iterate by doing a feasible line-search
-            # x, gamma = line_search(x, d, gamma_max, func)
-
             # if the minimum is at an endpoint
             if np.dot(d, grad_f(x + gamma_max * d)) <= 0:
                 gamma = gamma_max
                 x = x + gamma * d
             else:
-                x, gamma = line_search(x, d, gamma_max, func)
+                gamma = - np.dot(grad_f(x), d) / np.dot(d, d)
+                x = x + gamma * d
 
             # update active set
-            S, x = update_S(S, gamma, Away, vertex, x)
+            S = update_S(S, gamma, Away, vertex, gamma_max)
         end = process_time()
         time.append(time[t - 1] + end - start)
         f_improv = function_value[-1] - func(x)
@@ -1701,10 +1672,10 @@ def online_mirror_descent_bipartite(P: SubmodularPolytope, T: int, epsilon: floa
         regret_doubly_optimized, regret_ofw
 
 
-n = 50
+n = 100
 p = 0.2
-T = 1000
-start, end = 0, 10
+T = 2000
+start, end = 20, 22
 epsilon = math.pow(10, -4)
 a, b = 1, 2
 

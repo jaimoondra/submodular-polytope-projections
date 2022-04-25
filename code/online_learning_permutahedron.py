@@ -306,7 +306,205 @@ def line_search(x, d, gamma_max, func):
     return ls, gamma
 
 
+
+#AFW Algorithm
+# def AFW(x, S, lmo, epsilon,func,grad_f, f_tol, time_tol):
+#     # Fucntion to compute away vertex
+#     def away_step(grad, S):
+#         costs = {}
+#
+#         for k, v in S.items():
+#             cost = np.dot(k, grad)
+#             costs[cost] = [k, v]
+#         vertex, alpha = costs[max(costs.keys())]
+#         return vertex, alpha
+#
+#     def update_S(S, gamma, Away, vertex):
+#         S = S.copy()
+#         vertex = tuple(vertex)
+#         if not Away:
+#             if vertex not in S.keys():
+#                 S[vertex] = gamma
+#             else:
+#                 S[vertex] *= (1 - gamma)
+#                 S[vertex] += gamma
+#             for k in S.keys():
+#                 if k != vertex:
+#                     S[k] *= (1 - gamma)
+#         else:
+#             for k in S.keys():
+#                 if k != vertex:
+#                     S[k] *= (1 + gamma)
+#                 else:
+#                     S[k] *= (1 + gamma)
+#                     S[k] -= gamma
+#         return {k: v for k, v in S.items() if v > 0}
+#
+#
+#
+#
+#     #record primal gap, function value, and time every iteration
+#     now=datetime.datetime.now()
+#     primal_gap = []
+#     function_value=[func(x)]
+#     time = [0]
+#     f_improv = np.inf
+#     #initialize starting point and active set
+#     t = 0
+#     while t<= 4500:
+#         start = process_time()
+#         #compute gradient
+#         grad = grad_f(x)
+#         #solve linear subproblem and compute FW direction
+#         v = lmo(-grad)
+#         d_FW = v-x
+#         #If primal gap is small enough - terminate
+#         # print(np.dot(-grad, d_FW))
+#         if np.dot(-grad,d_FW) <= epsilon:
+#             break
+#         else:
+#             #update convergence data
+#             primal_gap.append(np.dot(-grad,d_FW))
+#         # print(np.dot(-grad,d_FW))
+#         #Compute away vertex and direction
+#         a,alpha_a = away_step(grad, S)
+#         d_A = x - a
+#         #Check if FW gap is greater than away gap
+#         if np.dot(-grad,d_FW) >= np.dot(-grad,d_A):
+#             #choose FW direction
+#             d = d_FW
+#             vertex = v
+#             gamma_max = 1
+#             Away = False
+#         else:
+#             #choose Away direction
+#             d = d_A
+#             vertex = a
+#             gamma_max = alpha_a/(1-alpha_a)
+#             Away = True
+#         #Update next iterate by doing a feasible line-search
+#         if np.dot(d, grad_f(x + gamma_max*d)) <= 0:
+#             gamma = gamma_max
+#         else:
+#             gamma = np.dot(-grad,d)/np.dot(d,d)
+#         x = x + gamma*d
+#         #update active set
+#         S = update_S(S,gamma, Away, vertex)
+#         end = process_time()
+#         time.append(time[t] + end - start)
+#         f_improv = function_value[-1] - func(x)
+#         function_value.append(func(x))
+#         t+=1
+#     return x, function_value, time,t,primal_gap,S
+
+
 def AFW(x, S, lmo, epsilon, func, grad_f, f_tol, time_tol):
+    n = len(x)
+
+    # Fucntion to compute away vertex
+    def away_step(grad, S):
+        costs = {}
+
+        for k, v in S.items():
+            cost = np.dot(k, grad)
+            costs[cost] = [k, v]
+        vertex, alpha = costs[max(costs.keys())]
+        return vertex, alpha
+
+    # Function to update the active set
+    def update_S(T, gamma, Away, vertex, gamma_away_max):
+        S = T.copy()
+        vertex = tuple(vertex)
+        if not Away:
+            if vertex not in T.keys():
+                S[vertex] = gamma
+            else:
+                S[vertex] *= (1 - gamma)
+                S[vertex] += gamma
+            for k in S.keys():
+                if k != vertex:
+                    S[k] *= (1 - gamma)
+        else:
+            for k in T.keys():
+                if k != vertex:
+                    S[k] *= (1 + gamma)
+                elif abs(gamma_away_max - gamma) < 10 ** -8:
+                    del S[k]
+                else:
+                    S[k] *= (1 + gamma)
+                    S[k] -= gamma
+        return S
+
+    # record primal gap, function value, and time every iteration
+    now = datetime.datetime.now()
+    primal_gap = []
+    function_value = [func(x)]
+    time = [0]
+    f_improv = np.inf
+    # initialize starting point and active set
+    t = 0
+    while (f_improv > f_tol and time[-1] < time_tol) and t < 10000:
+        # logging.warning('t = ' + str(t))
+        start = process_time()
+        # compute gradient
+        grad = grad_f(x)
+        # solve linear subproblem and compute FW direction
+        v = lmo(-grad)
+        d_FW = v - x
+        # If primal gap is small enough - terminate
+        # logging.warning('Primal gap:' + str(np.dot(-grad, d_FW)))
+        if np.dot(-grad, d_FW) <= epsilon:
+            end = process_time()  # Record end time
+            time.append(time[t] + end - start)
+            t = t + 1
+            break
+        else:
+            # update convergence data
+            primal_gap.append(np.dot(-grad, d_FW))
+            logging.info(str(np.dot(-grad, d_FW)))
+            logging.debug(str(v))
+
+        # Compute away vertex and direction
+        a, alpha_a = away_step(grad, S)
+        d_A = x - a
+        # Check if FW gap is greater than away gap
+        if np.dot(-grad, d_FW) >= np.dot(-grad, d_A):
+            # choose FW direction
+            d = d_FW
+            vertex = v
+            gamma_max = 1
+            Away = False
+        else:
+            # choose Away direction
+            d = d_A
+            vertex = a
+            gamma_max = alpha_a / (1 - alpha_a)
+            Away = True
+        # Update next iterate by doing a feasible line-search
+
+        # if the minimum is at an endpoint
+        if np.dot(d, grad_f(x + gamma_max * d)) <= 0:
+            gamma = gamma_max
+            x = x + gamma * d
+        else:
+            gamma = np.dot(-grad, d)/np.dot(d, d)
+            # logging.warning(str(gamma) + ', ' + str(gamma_max))
+            x = x + gamma * d
+
+        # update active set
+        S = update_S(S, gamma, Away, vertex, gamma_max)
+
+        end = process_time()                        # Record end time
+        time.append(time[t] + end - start)          # Update time taken in this iteration
+        f_improv = function_value[-1] - func(x)     # Update improvement in function value
+        function_value.append(func(x))              # Record current function value
+        # logging.warning('Function value:' + str(func(x)))
+        t += 1
+
+    return x, function_value, time[1:], t, primal_gap, S
+
+
+def AFW_old(x, S, lmo, epsilon, func, grad_f, f_tol, time_tol):
     n = len(x)
 
     # Fucntion to compute away vertex
@@ -365,7 +563,9 @@ def AFW(x, S, lmo, epsilon, func, grad_f, f_tol, time_tol):
     f_improv = np.inf
     # initialize starting point and active set
     t = 0
-    while f_improv > f_tol and time[-1] < time_tol:
+    while (f_improv > f_tol and time[-1] < time_tol) and t < 10000:
+        # logging.warning('t = ' + str(t))
+
         start = process_time()
         # compute gradient
         grad = grad_f(x)
@@ -445,9 +645,10 @@ def adaptive_AFW_cardinality_polytope(x, S, P, epsilon, func, grad_f, f_tol, tim
     :param y: point to be projected
     :return:
     """
-    # Fucntion to compute away vertex
     n = len(x)
     T = set(S.keys())
+
+    # Fucntion to compute away vertex
     def away_step(grad, S):
         costs = {}
 
@@ -457,41 +658,29 @@ def adaptive_AFW_cardinality_polytope(x, S, P, epsilon, func, grad_f, f_tol, tim
         vertex, alpha = costs[max(costs.keys())]
         return vertex, alpha
 
-    def update_S(S, gamma, Away, vertex, x):
-        S = S.copy()
+    # Fucntion to compute away vertex
+    def update_S(T, gamma, Away, vertex, gamma_away_max):
+        S = T.copy()
         vertex = tuple(vertex)
-
         if not Away:
-            if vertex not in S.keys():
+            if vertex not in T.keys():
                 S[vertex] = gamma
             else:
                 S[vertex] *= (1 - gamma)
                 S[vertex] += gamma
-
             for k in S.keys():
                 if k != vertex:
                     S[k] *= (1 - gamma)
         else:
-            for k in S.keys():
+            for k in T.keys():
                 if k != vertex:
                     S[k] *= (1 + gamma)
+                elif abs(gamma_away_max - gamma) < 10 ** -8:
+                    del S[k]
                 else:
                     S[k] *= (1 + gamma)
                     S[k] -= gamma
-
-        # Drop any vertices whose coefficients fall below 10^{-8}
-        U = {k: v for k, v in S.items() if np.round(v, 10) > 0}
-
-        # Update the point x
-        x = np.zeros(n)
-        for k in U:
-            x = x + U[k] * np.array(k)
-        t = sum(list(U.values()))
-        x = x/t
-        # Update coefficients in set T
-        U = {k: U[k]/t for k in U}
-
-        return U, x
+        return S
 
     def infer_tight_sets_from_close_point(d, tight_sets1):
         """
@@ -521,7 +710,7 @@ def adaptive_AFW_cardinality_polytope(x, S, P, epsilon, func, grad_f, f_tol, tim
     t = 0
     inferred_tight_sets = initial_tight_sets.union({frozenset()})
 
-    while f_improv > f_tol and time[-1] < time_tol:
+    while (f_improv > f_tol and time[-1] < time_tol) and t < 4000:
         # solve linear subproblem and compute FW direction
         def lmo(c, inferred_tight_sets):
             inferred_tight_sets_list = list(inferred_tight_sets)
@@ -597,17 +786,16 @@ def adaptive_AFW_cardinality_polytope(x, S, P, epsilon, func, grad_f, f_tol, tim
                 Away = True
 
             # Update next iterate by doing a feasible line-search
-            # x, gamma = line_search(x, d, gamma_max, func)
-
             # if the minimum is at an endpoint
             if np.dot(d, grad_f(x + gamma_max * d)) <= 0:
                 gamma = gamma_max
                 x = x + gamma * d
             else:
-                x, gamma = line_search(x, d, gamma_max, func)
+                gamma = - np.dot(grad_f(x), d) / np.dot(d, d)
+                x = x + gamma * d
 
             # update active set
-            S, x = update_S(S, gamma, Away, vertex, x)
+            S = update_S(S, gamma, Away, vertex, gamma_max)
         end = process_time()
         time.append(time[t - 1] + end - start)
         f_improv = function_value[-1] - func(x)
@@ -615,6 +803,7 @@ def adaptive_AFW_cardinality_polytope(x, S, P, epsilon, func, grad_f, f_tol, tim
         t += 1
 
     return x, function_value, time[1:], t, primal_gap, S, inferred_tight_sets
+
 
 def convex_hull_correction1(S, func):
     M = np.array([np.array(i) for i in S])
@@ -1203,6 +1392,30 @@ def projection_on_permutahedron_using_afw_euclidean(n, y, epsilon, lmo, S=None, 
     return A
 
 
+def projection_on_permutahedron_using_afw_euclidean_old(n, y, epsilon, lmo, S=None, x=None):
+    """
+    :param n: |E|
+    :param y: Point to project
+    :param epsilon: Error
+    :param S: Ative set dict
+    :param x: Intial iterate
+    :return:
+    """
+    y = np.array(y)
+    h = lambda x: 0.5 * np.dot(x - y, x - y)
+    grad_h = lambda x: np.power(x - y, 1)
+    h_tol, time_tol = -1, np.inf
+
+    if x is None:
+        w = generate_random_permutation(n)
+        x = w
+        S = {tuple(w): 1}
+
+    A = AFW_old(np.array(x), S, lmo, epsilon, h, grad_h, h_tol, time_tol)
+    # print(A)
+    return A
+
+
 def vanilla_mirror_descent(n, epsilon, P, T, loss_vectors_list, x_0, eta):
     total_time = 0.0
     fw_iterations = []
@@ -1233,8 +1446,32 @@ def vanilla_mirror_descent(n, epsilon, P, T, loss_vectors_list, x_0, eta):
 
         y = x - eta * l
 
-        x, _, fw_time, fw_iter, _, S = \
+        # print(y)
+        # import csv
+        # with open('instance_0.csv', 'w') as f:
+        #     # using csv.writer method from CSV package
+        #     write = csv.writer(f)
+        #
+        #     write.writerow(y)
+
+
+        x, _, fw_time, fw_iter, primal_gap, S = \
             projection_on_permutahedron_using_afw_euclidean(n, y, epsilon, lmo, {x_0: 1}, x_0)
+
+        x1, _, fw_time1, fw_iter1, primal_gap1, S1 = \
+            projection_on_permutahedron_using_afw_euclidean_old(n, y, epsilon, lmo, {x_0: 1}, x_0)
+
+        # plt.yscale('log')
+        # plt.plot(primal_gap[20:])
+        # # plt.show()
+        # plt.savefig('new_5.png')
+        # plt.clf()
+        #
+        # plt.yscale('log')
+        # plt.plot(primal_gap1[20:])
+        # # plt.show()
+        # plt.savefig('old_5.png')
+        # plt.clf()
 
         time_steps.append(sum(fw_time))
 
@@ -1651,11 +1888,11 @@ def online_mirror_descent_permutahedron(P: Permutahedron, T: int, epsilon: float
         regret_doubly_optimized, regret_ofw, regret_isotonic
 
 
-n = 50
-T = 1000
+n = 100
+T = 2000
 start = 0
-end = 10
-epsilon = math.pow(10, -3)
+end = 5
+epsilon = math.pow(10, -4)
 a, b = 1, 2
 
 print('n =', n, 'T =', T, 'epsilon =', epsilon, 'a =', a, 'b =', b)
@@ -1667,9 +1904,11 @@ for seed in range(start, end):
     t1, t2, t3, t4, t5, t6, T1, T2, T3, T4, T5, T6, i1, i2, i3, i4, r1, r2, r3, r4, r5, r6 =\
         online_mirror_descent_permutahedron(P, T, epsilon, seed, a, b)
 
+    # print(r1, r2, r3, r4, r5, r6)
     times = pd.DataFrame(columns=[T1, T2, T3, T4, T5, T6])
     iterates = pd.DataFrame(columns=[i1, i2, i3, i4])
     regrets = pd.DataFrame(columns=[r1, r2, r3, r4, r5, r6])
+
     times.to_csv('times_' + str(n) + '_' + str(T) + '_' + str(a) + '_' + str(b) +
                  '_' + str(seed) + '.csv')
     iterates.to_csv('iterates_' + str(n) + '_' + str(T) + '_' + str(a) + '_' +
